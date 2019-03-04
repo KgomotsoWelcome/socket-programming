@@ -53,9 +53,13 @@ public class Client {
                     try {
                         String info = input.readUTF();
                         System.out.println(info);
+                        if (info.equals("receive-file")) {
+                                saveFile(input);
+                        }
                     } catch (IOException e)
                     {
                         e.printStackTrace();
+                        System.exit(0);
                     }
                 }
             }
@@ -77,6 +81,7 @@ public class Client {
                         output.flush();
                         if (info.equals("send-file")) {
                             sendFile(output, keyboard);
+                            System.out.println("File has been sent.");
                         }
                     } catch (IOException e)
                     {
@@ -90,7 +95,7 @@ public class Client {
     }
 
 
-    synchronized static void sendFile(DataOutputStream output, Scanner keyboard) throws IOException
+    static void sendFile(DataOutputStream output, Scanner keyboard) throws IOException
     {
         System.out.println("Enter the file name you want to transfer: ");
         String filename = keyboard.nextLine();
@@ -105,6 +110,7 @@ public class Client {
         long length = file.length();
 
         output.writeUTF(filename);
+        output.writeUTF(name);
         output.writeLong(length);
         output.flush(); //To make sure the stream is clean
 
@@ -115,8 +121,23 @@ public class Client {
         fis.close();
     }
 
-    public void receiveFile()
+    static void saveFile(DataInputStream input) throws IOException
     {
+        String filename = name + input.readUTF();
+        long length = input.readLong();
+        int read;
+        long remaining = length;
+        byte[] buffer = new byte[8192];
+
+        FileOutputStream fos = new FileOutputStream(filename);
+
+        while((read = input.read(buffer, 0, Math.min(buffer.length, (int)remaining))) > 0) {
+            remaining -= read;
+            fos.write(buffer, 0, read);
+        }
+
+        System.out.println("File has been saved.");
+        fos.close();
 
     }
 
