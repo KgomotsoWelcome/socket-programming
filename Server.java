@@ -1,6 +1,3 @@
-import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
-
-import javax.xml.crypto.Data;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
@@ -70,9 +67,22 @@ class ClientHandler extends Thread {
                 }
 
                 if (message.equals("send-file")) {
+                    //Receive and save the file from source client
                     output.writeUTF("send-file-confirmed");
-                    output.flush();
-                    saveFile();
+                    String filename = "server" + input.readUTF();
+                    String recipient = input.readUTF();
+                    saveFile(filename);
+
+                    //Find and send the file to the recipient
+                    for (ClientHandler ch : Server.handler) {
+                        if (ch.name.equals(recipient)) {
+                            ch.output.writeUTF("receive-file");
+                            output.flush();
+                            sendFile(ch.output, filename);
+                        }
+                    }
+
+
                 }
                 else {
                     //Trying to get the client name that the message should goes to
@@ -87,7 +97,8 @@ class ClientHandler extends Thread {
                     }
                 }
             } catch(IOException e) {
-                System.out.println(e);
+                e.printStackTrace();
+                System.exit(0);
             }
         }
 
@@ -101,9 +112,8 @@ class ClientHandler extends Thread {
         }
     }
 
-    synchronized void saveFile() throws IOException
+    void saveFile(String filename) throws IOException
     {
-        String filename = "client" + input.readUTF();
         long length = input.readLong(); //Get the size of the file
         int read = 0; //To show how many bytes have been read each time
         long remaining = length; //Remaining bytes to be read
@@ -118,18 +128,25 @@ class ClientHandler extends Thread {
         System.out.println("File has been saved.");
 
         fos.close();
-        input.close();
     }
 
-    public void sendFile() throws FileNotFoundException, IOException
+    void sendFile(DataOutputStream output, String filename) throws IOException
     {
-        FileInputStream fis = new FileInputStream("send.mp4");
+        File file = new File(filename);
+        FileInputStream fis = new FileInputStream(file);
+
         byte[] buffer = new byte[8192];
-        int count =0;
+        long length = file.length();
 
+        output.writeUTF(filename);
+        output.writeLong(length);
+        output.flush();
+
+        int count;
         while ((count = fis.read(buffer)) > 0)
-            output.write(buffer);
+            output.write(buffer, 0, count);
 
+        System.out.println("File has been sent.");
         fis.close();
     }
 
