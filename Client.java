@@ -1,16 +1,41 @@
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
+import java.io.Console;
 
 public class Client {
 
-    private static int port = 2222;
+	/**
+     * Default port number.  This is the initial content of input boxes in
+     * the window that specify the port number for the connection. 
+     */
+    private static int port = 12001;
+    
+    /**
+     * Stores the name of the client
+     */
     static String name;
+    
+    /**
+     * Socket connects to IP address
+     * and port number.
+     */
+    static Socket client;
 
+	/**
+     * Beginning of main method.
+     */
     public static void main(String[] args)
     {
-        Socket client;
+		// Scanner object that will be used to take in input from the user
         Scanner keyboard = new Scanner(System.in);
+        
+        /**
+         * Connects socket using IP address and default port number.
+         * Opens input/output streams to transport data from client 
+         * to server and vice versa. Throws UnknownHostException and 
+         * IOException. Starts the threads used for communication.
+         **/
         try {
             InetAddress host = InetAddress.getLocalHost();
             client = new Socket(host.getHostAddress(), port);
@@ -18,70 +43,134 @@ public class Client {
             DataOutputStream output = new DataOutputStream(client.getOutputStream());
             DataInputStream input = new DataInputStream(client.getInputStream());
 
-            System.out.println("Please enter your name for this app: ");
-            name = keyboard.nextLine();
+            logIn(input, output, keyboard);
+            
+            System.out.println("0. To send a message use the format: [MessageBody@name] e.g \"hello@wlckgo001\" (use the name of the person you are sending the message to.)");
+			System.out.println("1. To send a file type the command \"send-file\" ");
+			System.out.println("2. To logout, type \"logout\" ");
 
-            boolean nameReceived = false; //To check whether the server has received the name
-            while (!nameReceived) {
-                output.writeUTF(name); //Telling the server what is the online name of the client
-                if (input.readUTF().equals("name-confirmed")) //Confirmation from the server that the client name has been received
-                    nameReceived = true;
-            }
-
-            System.out.println("Connection has been established, you may start the chat.\n");
-
-            Thread receiver = createReceiveThread(input);
-            Thread sender = createSendThread(output, keyboard);
+            Thread receiver = createReceiverThread(input, output);
+            Thread sender = createSenderThread(output, keyboard);
 
             receiver.start();
             sender.start();
 
         } catch(UnknownHostException e) {
-            e.printStackTrace();
+            System.out.println("Unknown host");
         } catch(IOException e) {
-            e.printStackTrace();
+            System.out.println("The server is disconnected");
         }
     }
+    
+    /**
+     * This method implementation is used to clear the screen
+     * to keep the display of the application nice and neat
+     **/
+    
+	public static void clearScreen() {  
+		System.out.print("\033[H\033[2J");  
+		System.out.flush();  
+	} 
 
-    public static Thread createReceiveThread(DataInputStream input)
+	/**
+	 * An added feature to check the authentification 
+	 * of the user before accessing the ChatApp. The user 
+	 * to use specific login details to access the ChatApp.
+	 **/
+    public static void logIn(DataInputStream input, DataOutputStream output, Scanner keyboard) throws IOException{
+        System.out.println("***************************Welcome to the ChatApp**********************");
+        boolean authorization = false;
+        while (!authorization) {
+            System.out.print("Please enter your name: ");
+            System.out.println();
+            String name = keyboard.nextLine();
+            Console console = System.console();
+            char[] pw = console.readPassword("Please enter your password: ");
+            String password = String.valueOf(pw);
+
+            output.writeUTF(name);
+            output.writeUTF(password);
+
+            String confirmation = input.readUTF();
+            if (confirmation.equals("info-confirm")) {
+                authorization = true;
+                Client.name = name;
+                System.out.println("You have successfully logged in.");
+            } else {
+                System.out.println("The username or password you entered is incorrect. Please try again.");
+            }
+        }
+        clearScreen();
+    }
+
+    public static Thread createReceiverThread(DataInputStream input, DataOutputStream output)
     {
-        Thread receiver = new Thread(new Runnable() {
+        return new Thread(new Runnable() {
             @Override
             public void run() {
                 while(true)
                 {
                     try {
                         String info = input.readUTF();
-                        System.out.println(info);
-                        if (info.equals("receive-file")) {
-                                saveFile(input);
+                        if (info.equals("receive-file-confirmation")) {
+                            String filename = input.readUTF();
+                            String name = input.readUTF();
+                            System.out.println("Do you want to accept file [" + filename + "] from " + name + "? Type 'Y' or 'N'");
+                        } else if (info.equals("receive-file"))
+                            saveFile(input);
+                        else if (info.equals("logout")) {
+                            input.close();
+                            output.close();
+                            client.close();
+                            System.exit(666);
                         }
+                        else
+                            System.out.println(info);
                     } catch (IOException e)
                     {
-                        e.printStackTrace();
-                        System.exit(0);
+                        System.out.println("Could not read the input stream.");
+                        break;
                     }
                 }
             }
         });
-
-        return receiver;
     }
 
-    public static Thread createSendThread(DataOutputStream output, Scanner keyboard)
+    public static Thread createSenderThread(DataOutputStream output, Scanner keyboard)
     {
-        Thread sender = new Thread(new Runnable() {
+        return new Thread(new Runnable() {
             @Override
             public void run() {
                 while(true)
                 {
                     try {
                         String info = keyboard.nextLine();
+                        boolean valid = false;
+                        while (!valid) { //To check whether the input line is valid
+                            if (info.contains("@") || info.equals("Y") || info.equals("N") || info.equals("send-file") ||info.equals("logout"))
+                                valid = true;
+                            else {
+                                System.out.println("Error. Please enter valid command. ");
+								System.out.println("0. To send a message use the format: [MessageBody@name] e.g \"hello@wlckgo001\" ");
+								System.out.println("1. To send a file type the command \"send-file\" ");
+                                //System.out.println("Or if you want to type a command, it is usually the format of [verb-noun], available command now are [send-file] and [logout]");
+                                info = keyboard.nextLine();
+                            }
+                        }
                         output.writeUTF(info);
                         output.flush();
-                        if (info.equals("send-file")) {
-                            sendFile(output, keyboard);
-                            System.out.println("File has been sent.");
+                        //Telling the server that the client agreed to accept the file
+                        if (info.equals("Y")) {
+                            System.out.println("Please type the file name: ");
+                            String filename = keyboard.nextLine();
+                            output.writeUTF(filename);
+                        } else if (info.equals("N")) { //Handling when the client refused to accept the file
+                            System.out.println("Please type the name of the person who requested to send you the file: ");
+                            String name = keyboard.nextLine();
+                            output.writeUTF(name);
+                        } else if (info.equals("send-file")) {//Telling the server that the client wants to send a file to another client
+                                sendFile(output, keyboard);
+                                System.out.println("File has been sent to the server.");
                         }
                     } catch (IOException e)
                     {
@@ -90,20 +179,27 @@ public class Client {
                 }
             }
         });
-
-        return sender;
     }
 
 
     static void sendFile(DataOutputStream output, Scanner keyboard) throws IOException
     {
-        System.out.println("Enter the file name you want to transfer: ");
-        String filename = keyboard.nextLine();
-        System.out.println("Enter the person's  name you want to send to: ");
+        boolean fileExists = false;
+        String filename = null;
+        File file = null;
+        while (!fileExists) {
+            System.out.println("Enter the file name you want to transfer: ");
+            filename = keyboard.nextLine();
+            file = new File(filename);
+            if (file.exists())
+                fileExists = true;
+            else
+                System.out.println("File does not exist. Try again.");
+        }
+        System.out.println("Enter the name of the receiver: ");
         String name = keyboard.nextLine(); //You will have to remove these two lines
 
         //Open the file and read from it, use File to get the size of the file, and use FileInputStream to read the data of the file
-        File file = new File(filename);
         FileInputStream fis = new FileInputStream(file);
 
         byte[] buffer = new byte[8192]; //Create a buffer for the data to be transported
