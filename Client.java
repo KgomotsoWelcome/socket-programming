@@ -2,16 +2,36 @@ import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 import java.util.ArrayList;
+import java.io.Console;
+
 
 public class Client {
+	 static ArrayList<String> client_names = new ArrayList<String>();
 
+	/**
+     * Default port number.  This is the initial content of input boxes in
+     * the window that specify the port number for the connection. 
+     */
     private static int port = 12001;
+    
+    /**
+     * The name and password variable stores the name and the password
+     * of the user. This is later used to check the authentification of the user 
+     * before the client logs into the system.
+     **/
     static String name;
     static String password;
+    static Console console = System.console();
+    
+     /**
+     * The name of the recipient is stored and later used to help the server
+     * know which destination to send the message to.
+     **/
     static String client_recipient;
     static Server server_class = new Server();
     
-    /**This method implementation is used to clear the screen
+    /**
+     * This method implementation is used to clear the screen
      * to keep the display of the application nice and neat
      **/
     public static void clearScreen() {  
@@ -29,20 +49,28 @@ public class Client {
 
             DataOutputStream output = new DataOutputStream(client.getOutputStream());
             DataInputStream input = new DataInputStream(client.getInputStream());
-			
+			 /**
+			 * An added feature to check the authentification 
+			 * of the user before accessing the ChatApp. The user 
+			 * to use specific login details to access the ChatApp.
+			 **/
 			System.out.println("***************************Welcome to the ChatApp**********************");
             
             while(true){
 				
-				System.out.println("Please enter your name: ");
+				System.out.print("Please enter your name: ");
+				System.out.println();
 				name = keyboard.nextLine();
             
-				System.out.println("Please enter your password: ");
-				password = keyboard.nextLine();
+				//System.out.println("Please enter your password: ");
+				char[] pw = console.readPassword("Please enter your password: ");
+				
+				//password = keyboard.nextLine();
 			
 				if((name.equals("wlckgo001"))||(name.equals("chnleo007"))||(name.equals("xkzmus001")))
 				{
 					System.out.println("You have been successfully connected!");
+					client_names.add(name);
 					break;
 				}else{
 					System.out.println("The Username or Password you entered is incorrect. Please try again.");
@@ -59,35 +87,22 @@ public class Client {
 
             Thread receiver = createReceiveThread(input);
             Thread sender = createSendThread(output, keyboard);
-
-			/**Prints out the names of the people that are online
-			 * to allow the user to choose who to communicate with
-			 **/
-			 
-			//int size = server_class.handler.size(); // getting the number of the clients connected
-            //System.out.println("The following people are online: ");
-            //System.out.println(size);
-            //for (int i = 0; i < size ; i++){
-				//System.out.println(server_class.handler.get(i));
-				//}
 		
-		System.out.println("Choose the person you would like to talk to.");
-		client_recipient = keyboard.nextLine();	
             receiver.start();
             sender.start();
 
         } catch(UnknownHostException e) {
-            e.printStackTrace();
+            System.out.println("Unknown host");
         } catch(IOException e) {
-            e.printStackTrace();
+            System.out.println("The server is disconnected");;
         }
     }
-
     public static Thread createReceiveThread(DataInputStream input)
     {
         Thread receiver = new Thread(new Runnable() {
             @Override
             public void run() {
+				//System.out.println("Choose the person you would like to talk to.");
                 while(true)
                 {
                     try {
@@ -113,9 +128,10 @@ public class Client {
             @Override
             public void run() {
 				clearScreen();
+				client_recipient = keyboard.nextLine();	
 				System.out.println(name+ " --------> "+ client_recipient);
 				System.out.println("Type the message you want to send or type \"send-file\" to send a file.");
-				System.out.println("logout");
+				
                 while(true)
                 {
                     try {
@@ -169,10 +185,6 @@ public class Client {
         int read;
         long remaining = length;
         byte[] buffer = new byte[8192];
-
-		System.out.println("Do you want to download the file? ");
-		System.out.println("1 - Yes I want to downlaod the file ");
-		System.out.println("No - I do not want to download the file ");
 		
         FileOutputStream fos = new FileOutputStream(filename);
 

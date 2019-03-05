@@ -5,19 +5,26 @@ import java.util.StringTokenizer;
 
 public class Server
 {
-
+	/**
+     * Default port number.  This is the initial content of input boxes in
+     * the window that specify the port number for the connection. 
+     */
     private static int port = 12001;
     static Client clientClass = new Client();
     static ArrayList<ClientHandler> handler = new ArrayList<ClientHandler>();
-
+    
+	
+	
     public static void main(String[] args)
     {
+		
 		System.out.println("*******************************Server*********************************");
         ServerSocket server = null;
         try {
             server = new ServerSocket(port);
 			
             while(true) {
+				
 				System.out.println();
                 System.out.println("Waiting for request from clients...");
                 Socket client = server.accept();
@@ -31,6 +38,8 @@ public class Server
 
                 ClientHandler ch = new ClientHandler(client, new DataInputStream(client.getInputStream()), output, name);
                 handler.add(ch);
+                
+                
                 System.out.println(name+" has been added to the client list!");
                 ch.start();
             }
@@ -46,7 +55,7 @@ class ClientHandler extends Thread {
     private final DataInputStream input;
     private final DataOutputStream output;
     private boolean isOnline = true;
-    private final String name;
+    public final String name;
 
     public ClientHandler(Socket client, DataInputStream input, DataOutputStream output, String name) {
         this.client = client;
@@ -57,12 +66,26 @@ class ClientHandler extends Thread {
 
     public void run()
     {
+		/**Prints out the names of the people that are online
+			 * to allow the user to choose who to communicate with
+			 **/
+		try{	
+			output.writeUTF("The following people are online");
+			for (ClientHandler clients : Server.handler) {
+				output.writeUTF(clients.name);
+			}
+			output.writeUTF("Choose the person you would like to talk to.");
+		}	
+		
+		catch (IOException e)
+			{System.out.println("Could not print the list of names");}	
+			
         while(true) {
+			    
             try {
                 String message = input.readUTF();
 
                 if (message.equals("logout")) {
-					System.out.println("Your friend has logged out.");
                     isOnline = false;
                     break;
                 }
@@ -88,7 +111,7 @@ class ClientHandler extends Thread {
                     StringTokenizer messageHandler = new StringTokenizer(message, "@");
                     String message1 = messageHandler.nextToken();
                     String recipient = messageHandler.nextToken();
-
+                    
                     //Looping through all the clients in the ArrayList to find the client that match the name
                     for (ClientHandler ch : Server.handler) {
                         if (ch.name.equals(recipient))
@@ -97,7 +120,7 @@ class ClientHandler extends Thread {
                 }
             } catch(IOException e) {
                 System.out.println("The client has disconnected.");
-                System.exit(0);
+                break;
             }
         }
 
