@@ -55,6 +55,7 @@ public class Server
                 handler.add(ch);
                 System.out.println("New client has been added to the client list.");
                 ch.start();
+		System.out.println();
             }
 
         } catch(IOException e) {
@@ -71,6 +72,7 @@ public class Server
 	 * ID and password should match for the user to login. 
      */
     static String logInCheck(DataInputStream input, DataOutputStream output) throws IOException {
+	System.out.println();
         while (true) {
             String name = input.readUTF(); //Read in the client ID
             String password = input.readUTF();
@@ -196,7 +198,7 @@ class ClientHandler extends Thread {
                     }
 
                     if (!online)
-                        output.writeUTF("User " + recipient + " is not online.");
+                        output.writeUTF(" Server: User " + recipient + " is not online.");
                 }
             } catch(IOException e) {
                 e.printStackTrace();
